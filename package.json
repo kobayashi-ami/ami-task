@@ -1,0 +1,30 @@
+{
+  "name": "ami-task",
+  "version": "0.1.0",
+  "description": "A single task, written once, floating on your desktop inside an eerie black soap-film bubble.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.ami.floatingtask",
+    "productName": "AmiTask",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ]
+    }
+  }
+}
