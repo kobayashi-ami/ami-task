@@ -210,10 +210,12 @@ async function refresh(fromBackground) {
 
 starEl.addEventListener('click', () => {
   if (!currentId || !window.ami) return;
-  window.ami.setActive(currentId);
-  activeId = currentId;
-  starEl.classList.add('on');
-  starEl.textContent = '★';
+  // toggle "current" on/off so the click always does something visible
+  const nowActive = activeId !== currentId;
+  window.ami.toggleActive(currentId);
+  activeId = nowActive ? currentId : null;
+  starEl.classList.toggle('on', nowActive);
+  starEl.textContent = nowActive ? '★' : '☆';
   renderList();
 });
 
@@ -226,7 +228,24 @@ document.getElementById('add').addEventListener('click', async () => {
   F.name.select();
 });
 
-document.getElementById('save').addEventListener('click', save);
+const saveBtnEl = document.getElementById('save');
+let saveFlashTimer = null;
+
+// Explicit save with a clear, visible confirmation so it never feels uncertain.
+function saveWithConfirm() {
+  if (!currentId) return;
+  save();
+  metaEl.textContent = '保存しました ✓ (たった今)';
+  saveBtnEl.textContent = '保存 ✓';
+  saveBtnEl.classList.add('ok');
+  if (saveFlashTimer) clearTimeout(saveFlashTimer);
+  saveFlashTimer = setTimeout(() => {
+    saveBtnEl.innerHTML = 'Save&nbsp;↵';
+    saveBtnEl.classList.remove('ok');
+  }, 1300);
+}
+
+saveBtnEl.addEventListener('click', saveWithConfirm);
 
 document.getElementById('delete').addEventListener('click', () => {
   if (!currentId || !window.ami) return;
@@ -273,7 +292,7 @@ document.addEventListener('keydown', (e) => {
     if (window.ami) window.ami.cancelEditor();
   } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
     e.preventDefault();
-    save();
+    saveWithConfirm();
   }
 });
 

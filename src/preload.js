@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('ami', {
   addProject: () => ipcRenderer.invoke('project:add'),
   deleteProject: (id) => ipcRenderer.send('project:delete', id),
   setActive: (id) => ipcRenderer.send('project:setActive', id),
+  toggleActive: (id) => ipcRenderer.send('project:toggleActive', id),
 
   // --- windows / actions ---
   openEditor: (id) => ipcRenderer.send('editor:open', id),

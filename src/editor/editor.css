@@ -312,3 +312,10 @@ body {
 .btn.primary:hover { background: linear-gradient(180deg, #eaf1ff 0%, #b7ceff 100%); }
 .btn.danger { color: #5a1418; }
 .btn.danger:hover { background: linear-gradient(180deg, #ffeaea 0%, #e8c4c4 100%); }
+.btn.ok {
+  color: #0d3a1a;
+  background: linear-gradient(180deg, #d6f5df 0%, #a6e6bd 100%);
+  border-right: 1px solid #6bb083;
+  border-bottom: 1px solid #4f9a6a;
+  box-shadow: 0 2px 0 #4f9a6a, 0 3px 6px rgba(40, 160, 90, 0.35);
+}

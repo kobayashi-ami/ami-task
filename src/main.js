@@ -487,6 +487,15 @@ ipcMain.on('project:setActive', (_e, id) => {
   pushProjectsToPanel();
 });
 
+// The star toggles "this is where I am right now" on and off.
+ipcMain.on('project:toggleActive', (_e, id) => {
+  if (!findProject(id)) return;
+  state.activeId = state.activeId === id ? null : id;
+  saveState();
+  bubbles.forEach((_w, pid) => pushProjectToBubble(pid));
+  pushProjectsToPanel();
+});
+
 ipcMain.on('bubble:hide', (_e, id) => {
   const p = findProject(id);
   const w = bubbles.get(id);

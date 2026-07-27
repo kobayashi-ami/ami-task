@@ -26,6 +26,7 @@ uniform float u_time;
 uniform float u_hover;
 uniform vec3  u_tint;
 uniform float u_seed;
+uniform float u_active;
 
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 345.45));
@@ -127,8 +128,11 @@ void main() {
   float pulse = 0.75 + 0.25 * sin(tt * 0.8);
   col += irid * rim * 1.0 + mix(vec3(0.05), prince, 0.5) * rim * pulse;
 
+  // "current" marker: the active project wears a warm gold halo
+  col += vec3(0.95, 0.72, 0.26) * rim * u_active * (0.55 + 0.45 * pulse);
+
   col *= mix(0.68, 1.0, rn * 0.6 + 0.4);
-  col *= (1.0 + 0.4 * u_hover);
+  col *= (1.0 + 0.4 * u_hover + 0.15 * u_active);
 
   float edge = smoothstep(1.0, 0.86, rn);
   float feather = smoothstep(bound, bound - 0.05, r); // soften the very lip
@@ -148,7 +152,7 @@ function compile(type, src) {
   return sh;
 }
 
-let program, uRes, uTime, uHover, uTint, uSeed;
+let program, uRes, uTime, uHover, uTint, uSeed, uActive;
 
 // A stable per-project seed derived from the project id (FNV-1a hash → 0..1),
 // so each bubble's membrane looks distinct and never repeats another's.
@@ -184,6 +188,7 @@ function initGL() {
   uHover = gl.getUniformLocation(program, 'u_hover');
   uTint = gl.getUniformLocation(program, 'u_tint');
   uSeed = gl.getUniformLocation(program, 'u_seed');
+  uActive = gl.getUniformLocation(program, 'u_active');
 
   gl.clearColor(0, 0, 0, 0);
   return true;
@@ -211,11 +216,14 @@ let tintTarget = TINTS.green;
 
 let hover = 0;
 let hoverTarget = 0;
+let active = 0;
+let activeTarget = 0;
 const start = performance.now();
 
 function frame(now) {
   resize();
   hover += (hoverTarget - hover) * 0.08;
+  active += (activeTarget - active) * 0.06;
   for (let i = 0; i < 3; i++) tint[i] += (tintTarget[i] - tint[i]) * 0.05;
   if (gl && program) {
     gl.uniform2f(uRes, canvas.width, canvas.height);
@@ -223,6 +231,7 @@ function frame(now) {
     gl.uniform1f(uHover, hover);
     gl.uniform3f(uTint, tint[0], tint[1], tint[2]);
     gl.uniform1f(uSeed, seed);
+    gl.uniform1f(uActive, active);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   requestAnimationFrame(frame);
@@ -253,6 +262,7 @@ function render(p) {
   }
   branchEl.textContent = p.branch ? '⑂ ' + p.branch : '';
   tintTarget = TINTS[p.status] || TINTS.green;
+  activeTarget = p.active ? 1 : 0;
 }
 
 if (window.ami && myId) {
