@@ -4,42 +4,83 @@
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
-    <title>AmiTask — Note</title>
+    <title>AmiTask — Mission Control</title>
     <link rel="stylesheet" href="editor.css" />
   </head>
   <body>
-    <!-- The enclosure: a real object sitting on your desk. -->
     <div class="enclosure">
       <span class="screw tl"></span>
       <span class="screw tr"></span>
       <span class="screw bl"></span>
       <span class="screw br"></span>
 
-      <!-- Title bar with the old 1-bit striped chrome -->
       <div class="titlebar">
         <button id="close" class="closebox" title="Close (Esc)" aria-label="Close"></button>
         <div class="stripes"></div>
-        <div class="title">T A S K&nbsp;&nbsp;N O T E</div>
+        <div class="title">M I S S I O N&nbsp;&nbsp;C O N T R O L</div>
         <div class="stripes"></div>
         <div class="titlebar-spacer"></div>
       </div>
 
-      <!-- The recessed phosphor display where you write -->
-      <div class="screen">
-        <div class="scanlines"></div>
-        <textarea
-          id="note"
-          spellcheck="false"
-          placeholder="Write the one task you must not forget…"
-        ></textarea>
+      <div class="body">
+        <!-- Project rack -->
+        <aside class="rack">
+          <div class="rack-title">PROJECTS</div>
+          <div id="list" class="list"></div>
+          <button id="add" class="rack-add">＋ New</button>
+        </aside>
+
+        <!-- Phosphor console -->
+        <section class="screen">
+          <div class="scanlines"></div>
+          <div id="form" class="form">
+            <div class="row head">
+              <input id="f-name" class="fld name" placeholder="Project name" />
+              <div class="status" id="f-status">
+                <button data-s="green" class="dot green" title="順調"></button>
+                <button data-s="amber" class="dot amber" title="保留"></button>
+                <button data-s="red" class="dot red" title="詰まり"></button>
+              </div>
+              <button id="f-active" class="star" title="Set as current (⌘1–9)">☆</button>
+            </div>
+
+            <label class="lbl">WHY — 何を作っているか</label>
+            <textarea id="f-why" class="fld area" rows="2" placeholder="1〜2行で"></textarea>
+
+            <label class="lbl now">NOW — 今ここ（1つ）</label>
+            <textarea id="f-now" class="fld area glow" rows="2" placeholder="今やっていること"></textarea>
+
+            <label class="lbl">NEXT — 次にやること（3つまで）</label>
+            <input id="f-next0" class="fld" placeholder="1." />
+            <input id="f-next1" class="fld" placeholder="2." />
+            <input id="f-next2" class="fld" placeholder="3." />
+
+            <label class="lbl">BLOCKER — 詰まっていること</label>
+            <textarea id="f-blocker" class="fld area" rows="2" placeholder="なければ空"></textarea>
+
+            <label class="lbl">REPO — ローカルのパス</label>
+            <div class="inline">
+              <input id="f-repo" class="fld" placeholder="/Users/you/dev/ares" />
+              <button id="open-folder" class="mini" title="フォルダを開く">📁</button>
+            </div>
+            <div id="f-gitmeta" class="gitmeta"></div>
+
+            <label class="lbl">LINKS</label>
+            <div class="inline"><span class="tag">GitHub</span><input id="f-github" class="fld" placeholder="https://github.com/…" /><button class="mini open" data-for="f-github">↗</button></div>
+            <div class="inline"><span class="tag">Claude</span><input id="f-claude" class="fld" placeholder="https://claude.ai/…" /><button class="mini open" data-for="f-claude">↗</button></div>
+            <div class="inline"><span class="tag">Codex</span><input id="f-codex" class="fld" placeholder="https://…" /><button class="mini open" data-for="f-codex">↗</button></div>
+            <div class="inline"><span class="tag">Manus</span><input id="f-manus" class="fld" placeholder="https://…" /><button class="mini open" data-for="f-manus">↗</button></div>
+            <div class="inline"><span class="tag">Docs</span><input id="f-docs" class="fld" placeholder="設計資料 URL" /><button class="mini open" data-for="f-docs">↗</button></div>
+          </div>
+          <div id="empty" class="empty-note" hidden>プロジェクトがありません。「＋ New」で追加。</div>
+        </section>
       </div>
 
-      <!-- Control deck -->
       <div class="deck">
         <div class="plate">AMI&nbsp;·&nbsp;MODEL&nbsp;01</div>
         <div class="meta" id="meta"></div>
         <div class="buttons">
-          <button id="cancel" class="btn">Cancel</button>
+          <button id="delete" class="btn danger">Delete</button>
           <button id="save" class="btn primary">Save&nbsp;↵</button>
         </div>
       </div>

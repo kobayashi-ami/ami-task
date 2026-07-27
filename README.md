@@ -1,19 +1,26 @@
 # AmiTask
 
-One task, written once, floating on your desktop inside an eerie black-ink soap
-film — always in front of everything.
+A floating **command post** for people who juggle several vibe-coding projects
+across Codex / Claude Code / Manus / GitHub and keep losing the thread of
+"wait — where was I on this one?".
 
-Two surfaces, deliberately at odds with each other:
+Each project is a **black-ink soap-film bubble** that floats on your desktop,
+always in front of everything, showing that project's **NOW** (the one thing
+you're doing) and glowing with its status colour. Behind them sits a single
+**mission-control panel** styled like an Apple Lisa / 80s beige workstation,
+where every project carries the fields that actually remove the "where am I?"
+cost:
 
-- **The bubble** — a frameless, transparent, always-on-top window rendered with a
-  WebGL shader: a near-black soap membrane with thin-film iridescence, a Fresnel
-  rim, a slow wet glint, and oil-on-water flow. It hovers above every window and
-  follows you across Spaces and full-screen apps. Your task glows faintly from
-  inside it.
-- **The note** — an Apple Lisa / 80s beige-workstation writing panel. A putty
-  plastic enclosure with corner screws, 1-bit striped title chrome, a recessed
-  phosphor display, and chunky beveled controls. It's meant to feel like a real
-  object sitting on the desk in front of you.
+- **Why** — what you're building (1–2 lines)
+- **Now** — the one thing you're doing (shown inside the bubble)
+- **Next** — up to three next actions
+- **Blocker** — what's stuck
+- **Branch** — read automatically from the local git repo
+- **Links** — GitHub / Claude / Codex / Manus / Docs + the local folder
+- **Status** — 🟢 on track · 🟡 on hold · 🔴 blocked (tints the membrane)
+
+The bubble is the eerie, always-present *current position*. The panel is the
+full context, one keypress away.
 
 ## Run it (on your Mac)
 
@@ -22,15 +29,25 @@ npm install
 npm start
 ```
 
-- The bubble appears near the top-right of your screen and stays on top.
-- **Drag** the bubble anywhere; its position is remembered.
-- Hover it and click the **✎** to edit, or press **⌘⇧Space** anywhere.
-- **Right-click** the bubble for Edit / Hide / Quit.
-- In the note: **Enter** saves, **Shift+Enter** adds a new line, **Esc** cancels.
-- The app lives in the **menu bar** (no Dock icon).
+- A bubble appears for each project and stays on top, across Spaces and
+  full-screen apps.
+- **Drag** a bubble anywhere; its position is remembered per project.
+- Hover a bubble and click **✎**, or press **⌘⇧Space**, to open mission control.
+- **Right-click** a bubble to jump straight to its GitHub / folder / links,
+  hide it, or quit.
+- **⌘1–9** jumps to a project (and marks it current).
+- The app lives in the **menu bar** — no Dock icon.
 
-Your task is stored in a single JSON file under the app's Application Support
-directory, along with the bubble's last position.
+## Branch & "last touched" — automatic, no token
+
+Register each project's **local repo path** in the panel. AmiTask reads the
+current branch from `.git/HEAD` and the last-modified time of the folder — all
+offline, no GitHub token or network required.
+
+## Data
+
+Everything (projects, statuses, links, bubble positions) lives in a single JSON
+file under the app's Application Support directory.
 
 ## Build a .app / .dmg
 
@@ -38,21 +55,18 @@ directory, along with the bubble's last position.
 npm run dist
 ```
 
-Produces a macOS build via `electron-builder` in `dist/`.
-
 ## Layout
 
 ```
 src/
-  main.js            Electron main process: windows, tray, persistence, IPC
-  preload.js         Safe bridge exposed to both windows
-  float/             The floating soap-film bubble (WebGL shader + task text)
-  editor/            The Lisa-flavoured writing panel
+  main.js       Electron main: bubbles, mission-control panel, git, tray, IPC
+  preload.js    Safe bridge exposed to every window
+  float/        The floating soap-film bubble (WebGL shader + project NOW)
+  editor/       The Lisa-flavoured mission-control panel
 ```
 
 ## Notes
 
-- Built and iterated on Linux; the transparent always-on-top behaviour and the
+- Built and iterated on Linux; the transparent always-on-top behaviour and
   Dock-hiding are macOS-targeted. Run it on macOS for the intended experience.
-- Requires a GPU with WebGL (every modern Mac). If WebGL is unavailable the
-  bubble degrades to transparent.
+- Requires WebGL (every modern Mac).

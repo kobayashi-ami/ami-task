@@ -11,12 +11,14 @@
     <!-- The membrane itself -->
     <canvas id="membrane"></canvas>
 
-    <!-- The task, suspended inside the film -->
+    <!-- The project, suspended inside the film -->
     <div id="stage">
+      <div id="name" class="name">—</div>
       <div id="task" class="task empty">
         <span id="task-text">…</span>
       </div>
-      <button id="edit" class="edit" title="Edit task (⌘⇧Space)" aria-label="Edit task">✎</button>
+      <div id="branch" class="branch"></div>
+      <button id="edit" class="edit" title="Edit (⌘⇧Space)" aria-label="Edit">✎</button>
     </div>
 
     <script src="float.js"></script>

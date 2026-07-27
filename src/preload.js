@@ -2,16 +2,36 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-// A deliberately small, safe surface exposed to both renderer windows.
-contextBridge.exposeInMainWorld('ami', {
-  // --- task data ---
-  getTask: () => ipcRenderer.invoke('task:get'),
-  saveTask: (text) => ipcRenderer.send('task:save', text),
-  onTaskUpdated: (cb) =>
-    ipcRenderer.on('task:updated', (_evt, payload) => cb(payload)),
+// A bubble window is launched with --ami-project=<id> so it knows which
+// project it represents.
+const arg = process.argv.find((a) => a.startsWith('--ami-project='));
+const projectId = arg ? arg.split('=')[1] : null;
 
-  // --- windows ---
-  openEditor: () => ipcRenderer.send('editor:open'),
+contextBridge.exposeInMainWorld('ami', {
+  projectId,
+
+  // --- reads ---
+  getProjects: () => ipcRenderer.invoke('projects:get'),
+  getProject: (id) => ipcRenderer.invoke('project:get', id),
+
+  // --- subscriptions ---
+  onProjectUpdated: (cb) =>
+    ipcRenderer.on('project:updated', (_e, payload) => cb(payload)),
+  onProjectsUpdated: (cb) =>
+    ipcRenderer.on('projects:updated', (_e, payload) => cb(payload)),
+  onPanelFocus: (cb) => ipcRenderer.on('panel:focus', (_e, id) => cb(id)),
+
+  // --- writes ---
+  saveProject: (data) => ipcRenderer.send('project:save', data),
+  addProject: () => ipcRenderer.invoke('project:add'),
+  deleteProject: (id) => ipcRenderer.send('project:delete', id),
+  setActive: (id) => ipcRenderer.send('project:setActive', id),
+
+  // --- windows / actions ---
+  openEditor: (id) => ipcRenderer.send('editor:open', id),
   cancelEditor: () => ipcRenderer.send('editor:cancel'),
-  bubbleContextMenu: () => ipcRenderer.send('float:context-menu'),
+  bubbleContextMenu: (id) => ipcRenderer.send('bubble:context-menu', id),
+  hideBubble: (id) => ipcRenderer.send('bubble:hide', id),
+  openLink: (url) => ipcRenderer.send('link:open', url),
+  openFolder: (p) => ipcRenderer.send('folder:open', p),
 });
