@@ -236,21 +236,29 @@ function driftTick() {
 
     if (resizing) m.size += (m.target - m.size) * 0.28;
 
-    // integrate + a little organic wander
+    // Mass from the task text: a light/empty bubble floats up, a heavy one
+    // (lots written) sinks. Weight also makes it more sluggish sideways.
+    const proj = findProject(id);
+    const now = proj && proj.now ? proj.now.trim() : '';
+    const mass = Math.min(now.length / 80, 1); // 0 (empty) .. 1 (heavy)
+
+    // gravity vs buoyancy — a gentle vertical lean by weight
+    m.vy += (mass - 0.35) * 0.035;
+
+    // organic wander (heavier drifts more ponderously)
+    m.vx += (Math.random() - 0.5) * 0.05 * (1 - 0.5 * mass);
+    m.vy += (Math.random() - 0.5) * 0.03;
+
+    // integrate
     m.cx += m.vx;
     m.cy += m.vy;
-    m.vx += (Math.random() - 0.5) * 0.05;
-    m.vy += (Math.random() - 0.5) * 0.05;
-    const sp = Math.hypot(m.vx, m.vy);
-    const MAXV = 1.3;
-    const MINV = 0.45;
-    if (sp > MAXV) {
-      m.vx *= MAXV / sp;
-      m.vy *= MAXV / sp;
-    } else if (sp < MINV && sp > 0) {
-      m.vx *= MINV / sp;
-      m.vy *= MINV / sp;
-    }
+
+    // clamp horizontal + vertical (terminal) speeds separately so gravity reads
+    m.vx = Math.max(-1.1, Math.min(1.1, m.vx));
+    m.vy = Math.max(-1.4, Math.min(1.4, m.vy));
+    m.vx *= 0.997; // slight drag
+    // keep some life sideways so mid-weight bubbles never fully stall
+    if (Math.abs(m.vx) < 0.28) m.vx += (m.vx >= 0 ? 1 : -1) * 0.04;
 
     const half = m.size / 2;
     if (m.cx - half < wa.x) {

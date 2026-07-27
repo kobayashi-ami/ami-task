@@ -27,6 +27,7 @@ uniform float u_hover;
 uniform vec3  u_tint;
 uniform float u_seed;
 uniform float u_active;
+uniform float u_mass;
 
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 345.45));
@@ -78,7 +79,13 @@ void main() {
     + 0.020 * sin(a * 5.0 - tt * 0.7)
     + 0.015 * sin(a * 7.0 + tt * 0.55 + u_seed * 3.0)
     + 0.012 * sin(a * 2.0 - tt * 1.15);
-  float bound = 0.88 + wob + 0.02 * sin(tt * 0.6); // slow overall breathing
+  // Mass from the task text gives the bubble weight: under gravity it sags
+  // into a heavy droplet — the top pinches, the bottom fills out — and it
+  // jiggles gently like jelly.
+  float vdir = -p.y / max(r, 0.0001); // +1 at the bottom, -1 at the top
+  float sag = u_mass * 0.11 * vdir * (1.0 + 0.12 * sin(tt * 1.6));
+  float bound = 0.86 + wob + 0.02 * sin(tt * 0.6) + sag;
+  bound = min(bound, 0.965); // never let it clip the window edge
   if (r > bound) { gl_FragColor = vec4(0.0); return; }
 
   float rn = r / bound; // normalised radius within the wobbling disc
@@ -161,7 +168,7 @@ function compile(type, src) {
   return sh;
 }
 
-let program, uRes, uTime, uHover, uTint, uSeed, uActive;
+let program, uRes, uTime, uHover, uTint, uSeed, uActive, uMass;
 
 // A stable per-project seed derived from the project id (FNV-1a hash → 0..1),
 // so each bubble's membrane looks distinct and never repeats another's.
@@ -198,6 +205,7 @@ function initGL() {
   uTint = gl.getUniformLocation(program, 'u_tint');
   uSeed = gl.getUniformLocation(program, 'u_seed');
   uActive = gl.getUniformLocation(program, 'u_active');
+  uMass = gl.getUniformLocation(program, 'u_mass');
 
   gl.clearColor(0, 0, 0, 0);
   return true;
@@ -227,12 +235,15 @@ let hover = 0;
 let hoverTarget = 0;
 let active = 0;
 let activeTarget = 0;
+let mass = 0;
+let massTarget = 0;
 const start = performance.now();
 
 function frame(now) {
   resize();
   hover += (hoverTarget - hover) * 0.08;
   active += (activeTarget - active) * 0.06;
+  mass += (massTarget - mass) * 0.05; // ease weight changes as you type
   for (let i = 0; i < 3; i++) tint[i] += (tintTarget[i] - tint[i]) * 0.05;
   if (gl && program) {
     gl.uniform2f(uRes, canvas.width, canvas.height);
@@ -241,6 +252,7 @@ function frame(now) {
     gl.uniform3f(uTint, tint[0], tint[1], tint[2]);
     gl.uniform1f(uSeed, seed);
     gl.uniform1f(uActive, active);
+    gl.uniform1f(uMass, mass);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   requestAnimationFrame(frame);
@@ -272,6 +284,7 @@ function render(p) {
   branchEl.textContent = p.branch ? '⑂ ' + p.branch : '';
   tintTarget = TINTS[p.status] || TINTS.green;
   activeTarget = p.active ? 1 : 0;
+  massTarget = Math.min(now.length / 80, 1); // heavier the more you write
 }
 
 if (window.ami && myId) {
