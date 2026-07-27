@@ -66,46 +66,73 @@ void main() {
   vec2 p = (uv - 0.5) * 2.0;
   p.x *= u_res.x / u_res.y;
   float r = length(p);
-  if (r > 1.0) { gl_FragColor = vec4(0.0); return; }
+  float a = atan(p.y, p.x);
 
-  float z = sqrt(max(0.0, 1.0 - r * r));
-  vec3 N = vec3(p, z);
+  float tt = u_time + u_seed * 53.0;
+
+  // Liquid, wobbling silhouette — the membrane breathes like real soap film.
+  // Pure harmonics keep it seamless around the circle (no atan crease).
+  float wob =
+      0.030 * sin(a * 3.0 + tt * 0.9 + u_seed * 6.28)
+    + 0.020 * sin(a * 5.0 - tt * 0.7)
+    + 0.015 * sin(a * 7.0 + tt * 0.55 + u_seed * 3.0)
+    + 0.012 * sin(a * 2.0 - tt * 1.15);
+  float bound = 0.88 + wob + 0.02 * sin(tt * 0.6); // slow overall breathing
+  if (r > bound) { gl_FragColor = vec4(0.0); return; }
+
+  float rn = r / bound; // normalised radius within the wobbling disc
+  float z = sqrt(max(0.0, 1.0 - rn * rn));
+  vec3 N = vec3(p / bound, z);
   vec3 V = vec3(0.0, 0.0, 1.0);
   float ndv = clamp(dot(N, V), 0.0, 1.0);
   float fres = pow(1.0 - ndv, 3.0);
 
-  // Each bubble carries its own seed so no two membranes share a pattern.
-  float t = (u_time + u_seed * 53.0) * 0.06;
+  // Turbulent, layered flow — more shimmer, faster and alive. Per-seed offset.
+  float t = tt * 0.09;
   vec2 so = vec2(u_seed * 37.0, u_seed * 61.0);
-  vec2 q = N.xy * 2.3 + so;
+  vec2 q = N.xy * 2.4 + so;
   vec2 warp = vec2(fbm(q + vec2(0.0, t)), fbm(q + vec2(5.2, -t)));
-  float film = fbm(q + warp * 1.8 + vec2(t * 0.5, -t * 0.3));
+  warp += 0.5 * vec2(fbm(q * 2.1 - t), fbm(q * 2.1 + t * 1.3));
+  float film = fbm(q + warp * 2.2 + vec2(t * 0.6, -t * 0.35));
+  float film2 = fbm(q * 1.7 - warp * 1.3 + vec2(-t * 0.4, t * 0.5));
 
-  float thickness = film * 0.9 + fres * 1.4 + r * 0.6 + t * 0.2 + u_seed;
+  float thickness = film * 0.9 + film2 * 0.5 + fres * 1.5 + rn * 0.6 + t * 0.25 + u_seed;
   vec3 irid = pal(thickness);
   irid = mix(irid, irid.bgr, 0.35);
-  // pull the oil-slick hue toward the project's status colour so 🟢🟡🔴 reads
-  irid = mix(irid, u_tint * 2.0, 0.45);
+  // keep the status colour readable...
+  irid = mix(irid, u_tint * 2.0, 0.42);
+  // ...but let a Prince-purple bleed through and pulse in the shimmer
+  vec3 prince = vec3(0.42, 0.06, 0.55);
+  irid = mix(irid, prince, 0.18 + 0.12 * sin(tt * 0.5 + thickness * 3.0));
 
-  vec3 base = vec3(0.015, 0.02, 0.035) + u_tint * 0.03;
-  float sheen = pow(film, 1.6) * 0.5 + fres * 0.9;
+  vec3 base = vec3(0.015, 0.02, 0.04) + u_tint * 0.03;
+  float sheen = pow(film, 1.5) * 0.6 + fres * 0.95;
   vec3 col = base + irid * sheen;
 
-  // status tint also washes the sheen and rim
-  float rim = smoothstep(0.86, 1.0, r);
+  float rim = smoothstep(0.72, 1.0, rn);
   col += u_tint * (sheen * 0.5 + rim * 0.7 + 0.12);
 
-  vec2 lp = vec2(0.35 * cos(u_time * 0.2 + u_seed * 6.28),
-                 0.42 + 0.2 * sin(u_time * 0.17 + u_seed * 6.28));
-  float spec = pow(max(0.0, 1.0 - length(N.xy - lp) * 1.6), 8.0);
-  col += vec3(0.6, 0.7, 0.9) * spec * 0.5;
+  // Prince-PV glossy glints: a bright white catch-light and a magenta glam
+  // streak, both drifting — high-contrast, wet, cinematic.
+  vec2 lp1 = vec2(0.34 * cos(u_time * 0.35 + u_seed * 6.28),
+                  0.40 + 0.22 * sin(u_time * 0.27 + u_seed * 6.28));
+  float g1 = pow(max(0.0, 1.0 - length(N.xy - lp1) * 1.7), 10.0);
+  vec2 lp2 = vec2(0.30 * cos(-u_time * 0.23 + u_seed * 3.0 + 2.0),
+                 -0.35 + 0.20 * sin(u_time * 0.31 + u_seed * 3.0));
+  float g2 = pow(max(0.0, 1.0 - length(N.xy - lp2) * 2.2), 12.0);
+  col += vec3(0.90, 0.95, 1.0) * g1 * 0.7;
+  col += vec3(0.85, 0.20, 0.95) * g2 * 0.7;
 
-  col += irid * rim * 0.9 + vec3(0.05) * rim;
-  col *= mix(0.7, 1.0, r * 0.6 + 0.4);
-  col *= (1.0 + 0.35 * u_hover);
+  // luminous rim that slowly breathes
+  float pulse = 0.75 + 0.25 * sin(tt * 0.8);
+  col += irid * rim * 1.0 + mix(vec3(0.05), prince, 0.5) * rim * pulse;
 
-  float edge = smoothstep(1.0, 0.9, r);
-  float alpha = 0.9 * edge + rim * 0.6;
+  col *= mix(0.68, 1.0, rn * 0.6 + 0.4);
+  col *= (1.0 + 0.4 * u_hover);
+
+  float edge = smoothstep(1.0, 0.86, rn);
+  float feather = smoothstep(bound, bound - 0.05, r); // soften the very lip
+  float alpha = (0.9 * edge + rim * 0.6) * feather;
   alpha = clamp(alpha, 0.0, 1.0);
   gl_FragColor = vec4(col, alpha);
 }

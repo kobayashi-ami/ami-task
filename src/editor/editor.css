@@ -278,7 +278,11 @@ body {
 .empty-note {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   color: rgba(150, 180, 230, 0.4); font-size: 13px; font-family: "SF Mono", monospace;
+  pointer-events: none; /* never swallow clicks meant for the form beneath it */
 }
+/* the [hidden] attribute must actually hide it (a class selector's display:flex
+   would otherwise win over the UA hidden rule) */
+.empty-note[hidden] { display: none; }
 
 /* ---- control deck ---- */
 .deck { display: flex; align-items: center; gap: 12px; margin: 12px 6px 2px; }
