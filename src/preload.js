@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('ami', {
   cancelEditor: () => ipcRenderer.send('editor:cancel'),
   bubbleContextMenu: (id) => ipcRenderer.send('bubble:context-menu', id),
   hideBubble: (id) => ipcRenderer.send('bubble:hide', id),
+  setHover: (id, hovered) => ipcRenderer.send('bubble:hover', { id, hovered }),
   openLink: (url) => ipcRenderer.send('link:open', url),
   openFolder: (p) => ipcRenderer.send('folder:open', p),
 });

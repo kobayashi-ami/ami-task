@@ -31,6 +31,7 @@ body:active {
   display: block;
 }
 
+/* Text is sized in vmin so it scales smoothly as the window swells on hover. */
 #stage {
   position: absolute;
   inset: 0;
@@ -39,82 +40,103 @@ body:active {
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  padding: 22%;
+  padding: 16%;
 }
 
 .name {
   font-family: -apple-system, "Helvetica Neue", "Segoe UI", sans-serif;
-  font-size: 10px;
+  font-size: 4.2vmin;
   font-weight: 700;
-  letter-spacing: 3px;
+  letter-spacing: 1.5vmin;
   text-transform: uppercase;
-  color: rgba(200, 216, 245, 0.6);
-  margin-bottom: 8px;
-  text-shadow: 0 0 8px rgba(120, 160, 255, 0.4);
+  color: rgba(210, 224, 250, 0.75);
+  margin-bottom: 3vmin;
+  text-shadow: 0 0 2vmin rgba(120, 160, 255, 0.5);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  /* hidden while small/drifting, revealed when the bubble swells */
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  transition: opacity 0.35s ease, max-height 0.35s ease, margin-bottom 0.35s ease;
 }
 
 .task {
   max-width: 100%;
-  max-height: 46%;
   overflow: hidden;
   text-align: center;
   font-family: -apple-system, "Helvetica Neue", "Segoe UI", sans-serif;
-  font-weight: 300;
-  font-size: 15px;
-  line-height: 1.45;
-  letter-spacing: 0.2px;
-  color: rgba(233, 240, 255, 0.94);
+  font-weight: 400;
+  font-size: 6.6vmin;
+  line-height: 1.4;
+  letter-spacing: 0.1vmin;
+  color: rgba(236, 243, 255, 0.96);
   white-space: pre-wrap;
   word-break: break-word;
   text-shadow:
-    0 0 6px rgba(150, 200, 255, 0.35),
-    0 0 18px rgba(120, 90, 220, 0.28),
-    0 0 2px rgba(0, 0, 0, 0.9);
+    0 0 1.2vmin rgba(150, 200, 255, 0.4),
+    0 0 3vmin rgba(120, 90, 220, 0.3),
+    0 0 0.4vmin rgba(0, 0, 0, 0.95);
 }
 
 .task.empty {
-  color: rgba(200, 215, 255, 0.32);
-  font-size: 26px;
-  letter-spacing: 4px;
+  color: rgba(205, 218, 255, 0.4);
+  font-size: 10vmin;
+  letter-spacing: 2vmin;
 }
 
 #task-text {
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+body.expanded #task-text { -webkit-line-clamp: 6; }
 
 .branch {
-  margin-top: 8px;
+  margin-top: 3vmin;
   font-family: "SF Mono", "Courier New", ui-monospace, monospace;
-  font-size: 9.5px;
-  letter-spacing: 0.3px;
-  color: rgba(180, 200, 235, 0.5);
+  font-size: 3.2vmin;
+  letter-spacing: 0.2vmin;
+  color: rgba(185, 205, 240, 0.6);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
-  min-height: 12px;
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+  transition: opacity 0.35s ease, max-height 0.35s ease, margin-top 0.35s ease;
 }
-.branch:empty { min-height: 0; }
+
+/* reveal identity + branch only when the bubble is swelled (hovered) */
+body.expanded .name {
+  opacity: 1;
+  max-height: 8vmin;
+  margin-bottom: 3vmin;
+}
+body.expanded .branch:not(:empty) {
+  opacity: 1;
+  max-height: 6vmin;
+  margin-top: 3vmin;
+}
 
 .edit {
   -webkit-app-region: no-drag;
   pointer-events: auto;
   position: absolute;
-  bottom: 16%;
-  width: 26px;
-  height: 26px;
+  bottom: 12%;
+  width: 11vmin;
+  height: 11vmin;
+  max-width: 30px;
+  max-height: 30px;
   border-radius: 50%;
   border: 1px solid rgba(170, 200, 255, 0.25);
   background: rgba(10, 14, 26, 0.35);
-  color: rgba(210, 225, 255, 0.55);
-  font-size: 12px;
+  color: rgba(210, 225, 255, 0.6);
+  font-size: 5vmin;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
@@ -123,7 +145,7 @@ body:active {
   backdrop-filter: blur(2px);
 }
 
-body:hover .edit { opacity: 1; }
+body.expanded .edit { opacity: 1; }
 
 .edit:hover {
   color: rgba(235, 245, 255, 0.95);

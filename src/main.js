@@ -13,6 +13,16 @@ const {
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+
+// Expand a leading ~ to the user's home directory (Node's fs does not do this).
+function expandPath(p) {
+  if (!p || typeof p !== 'string') return p;
+  p = p.trim();
+  if (p === '~') return os.homedir();
+  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2));
+  return p;
+}
 
 // ===========================================================================
 // AmiTask — a floating command post.
@@ -85,6 +95,7 @@ const findProject = (id) => state.projects.find((p) => p.id === id);
 // ---------------------------------------------------------------------------
 function gitInfo(repoPath) {
   const info = { branch: null, lastTouched: null };
+  repoPath = expandPath(repoPath);
   if (!repoPath) return info;
   try {
     let gitDir = path.join(repoPath, '.git');
@@ -113,34 +124,45 @@ function gitInfo(repoPath) {
 // Windows
 // ---------------------------------------------------------------------------
 const bubbles = new Map(); // projectId -> BrowserWindow
+const motion = new Map(); // projectId -> drift/size state {cx,cy,vx,vy,size,target,hovered}
 let panelWin = null; // the Lisa mission-control panel
 let tray = null;
 
-const BUBBLE_SIZE = 260;
+// Small while drifting, larger while hovered so you can read / grab / edit it.
+const BUBBLE_MIN = 112;
+const BUBBLE_MAX = 250;
+const DRIFT_MS = 30; // motion tick
 
-function bubbleDefaultPos(index) {
+function randomStart(size) {
   const wa = screen.getPrimaryDisplay().workArea;
-  // Cascade down the right edge so several bubbles don't stack exactly.
-  const x = Math.round(wa.x + wa.width - BUBBLE_SIZE - 40 - (index % 2) * 30);
-  const y = Math.round(wa.y + 48 + index * (BUBBLE_SIZE * 0.55));
-  return { x, y };
+  const half = size / 2;
+  return {
+    cx: wa.x + half + Math.random() * (wa.width - size),
+    cy: wa.y + half + Math.random() * (wa.height - size),
+  };
 }
 
-function createBubble(project, index) {
+function createBubble(project) {
   if (bubbles.has(project.id)) return bubbles.get(project.id);
 
-  let { x, y } = project.bubble || {};
-  if (x === null || x === undefined || y === null || y === undefined) {
-    const d = bubbleDefaultPos(index);
-    x = d.x;
-    y = d.y;
-  }
+  const { cx, cy } = randomStart(BUBBLE_MIN);
+  const ang = Math.random() * Math.PI * 2;
+  const speed = 0.7 + Math.random() * 0.5;
+  motion.set(project.id, {
+    cx,
+    cy,
+    vx: Math.cos(ang) * speed,
+    vy: Math.sin(ang) * speed,
+    size: BUBBLE_MIN,
+    target: BUBBLE_MIN,
+    hovered: false,
+  });
 
   const win = new BrowserWindow({
-    width: BUBBLE_SIZE,
-    height: BUBBLE_SIZE,
-    x,
-    y,
+    width: BUBBLE_MIN,
+    height: BUBBLE_MIN,
+    x: Math.round(cx - BUBBLE_MIN / 2),
+    y: Math.round(cy - BUBBLE_MIN / 2),
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -168,24 +190,92 @@ function createBubble(project, index) {
     pushProjectToBubble(project.id);
   });
 
-  let moveTimer = null;
-  win.on('move', () => {
-    if (moveTimer) clearTimeout(moveTimer);
-    moveTimer = setTimeout(() => {
-      if (win.isDestroyed()) return;
-      const p = findProject(project.id);
-      if (!p) return;
-      const [bx, by] = win.getPosition();
-      p.bubble.x = bx;
-      p.bubble.y = by;
-      saveState();
-    }, 300);
+  win.on('closed', () => {
+    bubbles.delete(project.id);
+    motion.delete(project.id);
   });
-
-  win.on('closed', () => bubbles.delete(project.id));
 
   bubbles.set(project.id, win);
   return win;
+}
+
+// The desktop drift: every bubble wanders gently across the screen, bouncing
+// off the edges. Hovering a bubble pauses it and swells it so you can read,
+// grab, or edit it; moving away lets it float off again.
+function driftTick() {
+  if (bubbles.size === 0) return;
+  for (const [id, win] of bubbles) {
+    if (win.isDestroyed() || !win.isVisible()) continue;
+    const m = motion.get(id);
+    if (!m) continue;
+
+    const disp = screen.getDisplayNearestPoint({
+      x: Math.round(m.cx),
+      y: Math.round(m.cy),
+    });
+    const wa = disp.workArea;
+    const resizing = Math.abs(m.size - m.target) > 0.5;
+
+    if (m.hovered) {
+      // Follow the user if they drag it; only re-lay-out while swelling.
+      const b = win.getBounds();
+      m.cx = b.x + b.width / 2;
+      m.cy = b.y + b.height / 2;
+      if (resizing) {
+        m.size += (m.target - m.size) * 0.28;
+        const s = Math.round(m.size);
+        win.setBounds({
+          x: Math.round(m.cx - s / 2),
+          y: Math.round(m.cy - s / 2),
+          width: s,
+          height: s,
+        });
+      }
+      continue;
+    }
+
+    if (resizing) m.size += (m.target - m.size) * 0.28;
+
+    // integrate + a little organic wander
+    m.cx += m.vx;
+    m.cy += m.vy;
+    m.vx += (Math.random() - 0.5) * 0.05;
+    m.vy += (Math.random() - 0.5) * 0.05;
+    const sp = Math.hypot(m.vx, m.vy);
+    const MAXV = 1.3;
+    const MINV = 0.45;
+    if (sp > MAXV) {
+      m.vx *= MAXV / sp;
+      m.vy *= MAXV / sp;
+    } else if (sp < MINV && sp > 0) {
+      m.vx *= MINV / sp;
+      m.vy *= MINV / sp;
+    }
+
+    const half = m.size / 2;
+    if (m.cx - half < wa.x) {
+      m.cx = wa.x + half;
+      m.vx = Math.abs(m.vx);
+    } else if (m.cx + half > wa.x + wa.width) {
+      m.cx = wa.x + wa.width - half;
+      m.vx = -Math.abs(m.vx);
+    }
+    if (m.cy - half < wa.y) {
+      m.cy = wa.y + half;
+      m.vy = Math.abs(m.vy);
+    } else if (m.cy + half > wa.y + wa.height) {
+      m.cy = wa.y + wa.height - half;
+      m.vy = -Math.abs(m.vy);
+    }
+
+    const s = Math.round(m.size);
+    win.setBounds({
+      x: Math.round(m.cx - s / 2),
+      y: Math.round(m.cy - s / 2),
+      width: s,
+      height: s,
+    });
+  }
 }
 
 function syncBubbles() {
@@ -198,8 +288,8 @@ function syncBubbles() {
     }
   }
   // Open bubbles for new projects.
-  state.projects.forEach((p, i) => {
-    if (!bubbles.has(p.id)) createBubble(p, i);
+  state.projects.forEach((p) => {
+    if (!bubbles.has(p.id)) createBubble(p);
   });
 }
 
@@ -417,7 +507,25 @@ ipcMain.on('link:open', (_e, url) => {
 });
 
 ipcMain.on('folder:open', (_e, p) => {
-  if (typeof p === 'string' && p.trim()) shell.openPath(p);
+  const full = expandPath(p);
+  if (full && full.trim()) shell.openPath(full);
+});
+
+// A bubble reports when the pointer enters/leaves it: pause its drift and let
+// it swell, then release it back into motion.
+ipcMain.on('bubble:hover', (_e, payload) => {
+  const m = motion.get(payload && payload.id);
+  if (!m) return;
+  m.hovered = !!payload.hovered;
+  m.target = m.hovered ? BUBBLE_MAX : BUBBLE_MIN;
+  if (!m.hovered) {
+    const w = bubbles.get(payload.id);
+    if (w && !w.isDestroyed()) {
+      const b = w.getBounds();
+      m.cx = b.x + b.width / 2;
+      m.cy = b.y + b.height / 2;
+    }
+  }
 });
 
 ipcMain.on('bubble:context-menu', (_e, id) => {
@@ -464,6 +572,9 @@ app.whenReady().then(() => {
 
   syncBubbles();
   createTray();
+
+  // Set every bubble adrift across the desktop.
+  setInterval(driftTick, DRIFT_MS);
 
   // Refresh git branch / last-touched periodically so bubbles stay current.
   setInterval(() => {

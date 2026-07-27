@@ -25,6 +25,7 @@ uniform vec2  u_res;
 uniform float u_time;
 uniform float u_hover;
 uniform vec3  u_tint;
+uniform float u_seed;
 
 float hash(vec2 p) {
   p = fract(p * vec2(123.34, 345.45));
@@ -73,24 +74,29 @@ void main() {
   float ndv = clamp(dot(N, V), 0.0, 1.0);
   float fres = pow(1.0 - ndv, 3.0);
 
-  float t = u_time * 0.06;
-  vec2 q = N.xy * 2.3;
+  // Each bubble carries its own seed so no two membranes share a pattern.
+  float t = (u_time + u_seed * 53.0) * 0.06;
+  vec2 so = vec2(u_seed * 37.0, u_seed * 61.0);
+  vec2 q = N.xy * 2.3 + so;
   vec2 warp = vec2(fbm(q + vec2(0.0, t)), fbm(q + vec2(5.2, -t)));
   float film = fbm(q + warp * 1.8 + vec2(t * 0.5, -t * 0.3));
 
-  float thickness = film * 0.9 + fres * 1.4 + r * 0.6 + t * 0.2;
+  float thickness = film * 0.9 + fres * 1.4 + r * 0.6 + t * 0.2 + u_seed;
   vec3 irid = pal(thickness);
   irid = mix(irid, irid.bgr, 0.35);
+  // pull the oil-slick hue toward the project's status colour so 🟢🟡🔴 reads
+  irid = mix(irid, u_tint * 2.0, 0.45);
 
-  vec3 base = vec3(0.015, 0.02, 0.035);
+  vec3 base = vec3(0.015, 0.02, 0.035) + u_tint * 0.03;
   float sheen = pow(film, 1.6) * 0.5 + fres * 0.9;
   vec3 col = base + irid * sheen;
 
-  // status tint bleeds into the sheen and rim — eerie, not loud
+  // status tint also washes the sheen and rim
   float rim = smoothstep(0.86, 1.0, r);
-  col += u_tint * (sheen * 0.22 + rim * 0.35);
+  col += u_tint * (sheen * 0.5 + rim * 0.7 + 0.12);
 
-  vec2 lp = vec2(0.35 * cos(u_time * 0.2), 0.42 + 0.2 * sin(u_time * 0.17));
+  vec2 lp = vec2(0.35 * cos(u_time * 0.2 + u_seed * 6.28),
+                 0.42 + 0.2 * sin(u_time * 0.17 + u_seed * 6.28));
   float spec = pow(max(0.0, 1.0 - length(N.xy - lp) * 1.6), 8.0);
   col += vec3(0.6, 0.7, 0.9) * spec * 0.5;
 
@@ -115,7 +121,18 @@ function compile(type, src) {
   return sh;
 }
 
-let program, uRes, uTime, uHover, uTint;
+let program, uRes, uTime, uHover, uTint, uSeed;
+
+// A stable per-project seed derived from the project id (FNV-1a hash → 0..1),
+// so each bubble's membrane looks distinct and never repeats another's.
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) / 4294967295;
+}
 
 function initGL() {
   if (!gl) {
@@ -139,6 +156,7 @@ function initGL() {
   uTime = gl.getUniformLocation(program, 'u_time');
   uHover = gl.getUniformLocation(program, 'u_hover');
   uTint = gl.getUniformLocation(program, 'u_tint');
+  uSeed = gl.getUniformLocation(program, 'u_seed');
 
   gl.clearColor(0, 0, 0, 0);
   return true;
@@ -177,6 +195,7 @@ function frame(now) {
     gl.uniform1f(uTime, (now - start) / 1000);
     gl.uniform1f(uHover, hover);
     gl.uniform3f(uTint, tint[0], tint[1], tint[2]);
+    gl.uniform1f(uSeed, seed);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   requestAnimationFrame(frame);
@@ -192,6 +211,7 @@ const branchEl = document.getElementById('branch');
 const editBtn = document.getElementById('edit');
 
 const myId = window.ami ? window.ami.projectId : null;
+const seed = myId ? hashStr(myId) : Math.random();
 
 function render(p) {
   if (!p || (myId && p.id !== myId)) return;
@@ -223,8 +243,18 @@ window.addEventListener('contextmenu', (e) => {
   if (window.ami) window.ami.bubbleContextMenu(myId);
 });
 
-document.body.addEventListener('mouseenter', () => (hoverTarget = 1));
-document.body.addEventListener('mouseleave', () => (hoverTarget = 0));
+// Hovering swells the bubble (via main) and reveals its detail; leaving lets
+// it drift off again.
+document.body.addEventListener('mouseenter', () => {
+  hoverTarget = 1;
+  document.body.classList.add('expanded');
+  if (window.ami) window.ami.setHover(myId, true);
+});
+document.body.addEventListener('mouseleave', () => {
+  hoverTarget = 0;
+  document.body.classList.remove('expanded');
+  if (window.ami) window.ami.setHover(myId, false);
+});
 
 if (initGL()) {
   resize();
