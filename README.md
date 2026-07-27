@@ -70,3 +70,10 @@ src/
 - Built and iterated on Linux; the transparent always-on-top behaviour and
   Dock-hiding are macOS-targeted. Run it on macOS for the intended experience.
 - Requires WebGL (every modern Mac).
+
+## License & credits
+
+- AmiTask is released under the MIT License (see `LICENSE`).
+- The bundled **Hina Mincho** typeface (`src/float/fonts/hina-mincho/`) is by
+  the Hina Mincho Project Authors, licensed under the SIL Open Font License
+  1.1 — see `src/float/fonts/hina-mincho/OFL.txt`.
