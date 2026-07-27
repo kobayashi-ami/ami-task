@@ -111,8 +111,15 @@ void main() {
   float sheen = pow(film, 1.5) * 0.6 + fres * 0.95;
   vec3 col = base + irid * sheen;
 
-  float rim = smoothstep(0.72, 1.0, rn);
-  col += u_tint * (sheen * 0.5 + rim * 0.7 + 0.12);
+  // A soft, misty rim whose thickness wobbles around the bubble, so the edge
+  // reads as a curved film — not a flat 2-D white outline.
+  float rimWob = 0.55 + 0.30 * sin(a * 4.0 + tt * 0.8 + u_seed * 6.28)
+                      + 0.15 * sin(a * 7.0 - tt * 0.6);
+  float rimStart = 0.55 + 0.22 * clamp(rimWob, 0.0, 1.0);
+  float rim = smoothstep(rimStart, 1.0, rn);
+  rim *= 0.45 + 0.75 * film; // break the ring into drifting mist
+  rim = clamp(rim, 0.0, 1.0);
+  col += u_tint * (sheen * 0.5 + rim * 0.5 + 0.12);
 
   // Prince-PV glossy glints: a bright white catch-light and a magenta glam
   // streak, both drifting — high-contrast, wet, cinematic.
@@ -125,9 +132,10 @@ void main() {
   col += vec3(0.90, 0.95, 1.0) * g1 * 0.7;
   col += vec3(0.85, 0.20, 0.95) * g2 * 0.7;
 
-  // luminous rim that slowly breathes
+  // luminous rim that slowly breathes — coloured by the film's own
+  // iridescence and purple, never a flat white line
   float pulse = 0.75 + 0.25 * sin(tt * 0.8);
-  col += irid * rim * 1.0 + mix(vec3(0.05), prince, 0.5) * rim * pulse;
+  col += irid * rim * 0.8 + mix(prince, u_tint, 0.5) * rim * pulse * 0.6;
 
   // "current" marker: the active project wears a warm gold halo
   col += vec3(0.95, 0.72, 0.26) * rim * u_active * (0.55 + 0.45 * pulse);
@@ -136,7 +144,7 @@ void main() {
   col *= (1.0 + 0.4 * u_hover + 0.15 * u_active);
 
   float edge = smoothstep(1.0, 0.86, rn);
-  float feather = smoothstep(bound, bound - 0.05, r); // soften the very lip
+  float feather = smoothstep(bound, bound - 0.09, r); // softer, mistier lip
   float alpha = (0.9 * edge + rim * 0.6) * feather;
   alpha = clamp(alpha, 0.0, 1.0);
   gl_FragColor = vec4(col, alpha);
