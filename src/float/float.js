@@ -100,11 +100,12 @@ void main() {
   float thickness = film * 0.9 + film2 * 0.5 + fres * 1.5 + rn * 0.6 + t * 0.25 + u_seed;
   vec3 irid = pal(thickness);
   irid = mix(irid, irid.bgr, 0.35);
-  // keep the status colour readable...
-  irid = mix(irid, u_tint * 2.0, 0.42);
-  // ...but let a Prince-purple bleed through and pulse in the shimmer
+  // a Prince-purple bleeds through the raw oil-slick and pulses...
   vec3 prince = vec3(0.42, 0.06, 0.55);
-  irid = mix(irid, prince, 0.18 + 0.12 * sin(tt * 0.5 + thickness * 3.0));
+  irid = mix(irid, prince, 0.16 + 0.10 * sin(tt * 0.5 + thickness * 3.0));
+  // ...then the status colour dominates last, so 🟢🟡🔴 always reads (green
+  // no longer gets washed out by the purple).
+  irid = mix(irid, u_tint * 2.0, 0.5);
 
   vec3 base = vec3(0.015, 0.02, 0.04) + u_tint * 0.03;
   float sheen = pow(film, 1.5) * 0.6 + fres * 0.95;
@@ -207,9 +208,9 @@ function resize() {
 
 // status → tint colour
 const TINTS = {
-  green: [0.05, 0.55, 0.28],
-  amber: [0.6, 0.42, 0.06],
-  red: [0.62, 0.08, 0.14],
+  green: [0.06, 0.72, 0.34],
+  amber: [0.62, 0.42, 0.05],
+  red: [0.64, 0.07, 0.13],
 };
 let tint = TINTS.green;
 let tintTarget = TINTS.green;
