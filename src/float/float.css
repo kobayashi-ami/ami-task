@@ -92,6 +92,7 @@ body:active {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  font-family: "Hina Mincho", "Hiragino Mincho ProN", serif;
 }
 body.expanded #task-text { -webkit-line-clamp: 6; }
 
