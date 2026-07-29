@@ -1,5 +1,12 @@
 # AmiTask
 
+> ### ▶︎ 起動 / Launch
+> ```bash
+> cd ~/ami-task && npm start
+> ```
+> Or just **double-click `start.command`** (drag it to the Dock to launch with
+> one click — no typing, nothing to remember). First run only: `npm install`.
+
 A floating **command post** for people who juggle several vibe-coding projects
 across Codex / Claude Code / Manus / GitHub and keep losing the thread of
 "wait — where was I on this one?".
