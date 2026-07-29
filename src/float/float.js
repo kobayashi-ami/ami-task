@@ -85,10 +85,11 @@ void main() {
   float vdir = -p.y / max(r, 0.0001); // +1 at the bottom, -1 at the top
   float sag = u_mass * 0.11 * vdir * (1.0 + 0.12 * sin(tt * 1.6));
   float bound = 0.86 + wob + 0.02 * sin(tt * 0.6) + sag;
-  bound = min(bound, 0.965); // never let it clip the window edge
-  if (r > bound) { gl_FragColor = vec4(0.0); return; }
+  bound = min(bound, 0.90); // leave room for the misty halo outside the body
+  float fogOuter = 0.99;
+  if (r > fogOuter) { gl_FragColor = vec4(0.0); return; }
 
-  float rn = r / bound; // normalised radius within the wobbling disc
+  float rn = clamp(r / bound, 0.0, 1.0); // normalised radius within the body
   float z = sqrt(max(0.0, 1.0 - rn * rn));
   vec3 N = vec3(p / bound, z);
   vec3 V = vec3(0.0, 0.0, 1.0);
@@ -150,11 +151,24 @@ void main() {
   col *= mix(0.68, 1.0, rn * 0.6 + 0.4);
   col *= (1.0 + 0.4 * u_hover + 0.15 * u_active);
 
-  float edge = smoothstep(1.0, 0.86, rn);
-  float feather = smoothstep(bound, bound - 0.09, r); // softer, mistier lip
-  float alpha = (0.9 * edge + rim * 0.6) * feather;
-  alpha = clamp(alpha, 0.0, 1.0);
-  gl_FragColor = vec4(col, alpha);
+  // Body opacity inside the membrane, feathered at its lip.
+  float edge = smoothstep(1.0, 0.82, rn);
+  float bodyMask = smoothstep(bound, bound - 0.06, r); // 1 inside, 0 past the lip
+  float bodyAlpha = (0.9 * edge + rim * 0.6) * bodyMask;
+
+  // Outer misty halo: wispy fog that thins outward and is broken up by drifting
+  // noise, so the bubble dissolves into the desktop instead of ending on a hard
+  // circle — the subtle mist Ami wants around the edge.
+  float halo = smoothstep(fogOuter, bound - 0.02, r); // 0 at the outer edge, 1 near the body
+  float fogN = 0.28 + 0.72 * fbm(N.xy * 3.0 + so + vec2(t * 0.5, -t * 0.4));
+  float haloAlpha = halo * fogN * (0.15 + 0.08 * sin(tt * 0.7 + u_seed * 6.28)) * (1.0 - bodyMask);
+
+  // faint iridescent-purple mist colour for the halo
+  vec3 fogCol = mix(vec3(0.02, 0.02, 0.05), irid * 0.55 + prince * 0.45, 0.55);
+  vec3 outCol = mix(fogCol, col, bodyMask);
+
+  float alpha = clamp(bodyAlpha + haloAlpha, 0.0, 1.0);
+  gl_FragColor = vec4(outCol, alpha);
 }
 `;
 
@@ -238,8 +252,13 @@ let activeTarget = 0;
 let mass = 0;
 let massTarget = 0;
 const start = performance.now();
+let lastRender = 0;
 
 function frame(now) {
+  requestAnimationFrame(frame);
+  // Cap to ~35fps: the drift is slow, so this halves GPU/CPU vs a 60fps loop.
+  if (now - lastRender < 28) return;
+  lastRender = now;
   resize();
   hover += (hoverTarget - hover) * 0.08;
   active += (activeTarget - active) * 0.06;
@@ -255,7 +274,6 @@ function frame(now) {
     gl.uniform1f(uMass, mass);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
-  requestAnimationFrame(frame);
 }
 
 // ---------------------------------------------------------------------------

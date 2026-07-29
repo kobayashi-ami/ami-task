@@ -277,12 +277,14 @@ function driftTick() {
     }
 
     const s = Math.round(m.size);
-    win.setBounds({
-      x: Math.round(m.cx - s / 2),
-      y: Math.round(m.cy - s / 2),
-      width: s,
-      height: s,
-    });
+    const nx = Math.round(m.cx - s / 2);
+    const ny = Math.round(m.cy - s / 2);
+    if (resizing) {
+      win.setBounds({ x: nx, y: ny, width: s, height: s });
+    } else {
+      // Moving without touching size flickers transparent windows far less.
+      win.setPosition(nx, ny);
+    }
   }
 }
 
