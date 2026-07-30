@@ -4,8 +4,14 @@
 > ```bash
 > cd ~/ami-task && npm start
 > ```
-> Or just **double-click `start.command`** (drag it to the Dock to launch with
-> one click — no typing, nothing to remember). First run only: `npm install`.
+> Or just **double-click `start.command`** (nothing to remember).
+>
+> **One-time setup** — make a Spotlight-/Dock-launchable **AmiTask** app with the
+> bubble icon:
+> ```bash
+> bash ~/ami-task/scripts/install-mac.command
+> ```
+> Then launch it with **⌘Space → “AmiTask”**, or pin it to the Dock.
 
 A floating **command post** for people who juggle several vibe-coding projects
 across Codex / Claude Code / Manus / GitHub and keep losing the thread of
