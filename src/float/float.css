@@ -46,13 +46,10 @@ html, body {
   font-size: 1.15em;
   line-height: 1.45;
   color: #e7ecf3;                     /* off-white, not pure #fff (less halation) */
-  background: rgba(10, 12, 20, 0.5);  /* dark-grey backplate, not pure black */
-  border: 1px solid rgba(150, 170, 210, 0.12);
-  border-radius: 0.6em;
-  padding: 0.35em 0.6em;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75); /* thin, not a glow */
+  padding: 0.2em 0.4em;
+  /* contrast comes from the membrane's dark core + a soft dark halo on the
+     glyphs themselves — no rectangular backplate ("bar") */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 10px rgba(0, 0, 0, 0.55);
   overflow: hidden;
 }
 .l-now-text {
@@ -66,7 +63,6 @@ html, body {
 .label.expanded .l-now-text { -webkit-line-clamp: 6; }
 .l-now.empty {
   color: rgba(210, 220, 240, 0.4);
-  background: rgba(10, 12, 20, 0.28);
 }
 
 /* --- name + branch: revealed only when the bubble swells (hover) --- */

@@ -122,13 +122,15 @@ void main(){
   float pulse = 0.75 + 0.25*sin(tt*0.8);
   col += irid*rim*0.30;
   col += vec3(0.95,0.72,0.26)*rim*u_active*(0.55+0.45*pulse);
-  col *= mix(0.68,1.0, rn*0.6+0.4);
+  // soft dark core: gives the text zone contrast from the membrane itself
+  // (no rectangular backplate needed) while the rim stays glassy and bright.
+  col *= mix(0.40, 1.0, smoothstep(0.0, 0.6, rn));
   col *= (1.0 + 0.4*u_hover + 0.15*u_active);
 
-  // liquid-glass opacity: clear centre, denser grazing edge
+  // glass, but present: clear-ish centre, denser grazing edge
   float edge = smoothstep(1.0, 0.82, rn);
   float bodyMask = smoothstep(bound, bound-0.06, r);
-  float glass = 0.20 + 0.66*fres;
+  float glass = 0.52 + 0.42*fres;
   float bodyAlpha = (glass*edge + rim*0.4) * bodyMask;
 
   // original wispy mist that streams outward and frays
