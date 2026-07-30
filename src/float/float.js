@@ -150,20 +150,37 @@ void main() {
   col *= mix(0.68, 1.0, rn * 0.6 + 0.4);
   col *= (1.0 + 0.4 * u_hover + 0.15 * u_active);
 
-  // Body opacity inside the membrane, feathered at its lip.
+  // Liquid-glass opacity: clear through the middle so the desktop shows, and
+  // denser only where the surface turns away at grazing angles (fresnel).
   float edge = smoothstep(1.0, 0.82, rn);
   float bodyMask = smoothstep(bound, bound - 0.06, r); // 1 inside, 0 past the lip
-  float bodyAlpha = (0.9 * edge + rim * 0.6) * bodyMask;
+  float glass = 0.20 + 0.66 * fres;
+  float bodyAlpha = (glass * edge + rim * 0.4) * bodyMask;
 
-  // Outer misty halo: wispy fog that thins outward and is broken up by drifting
-  // noise, so the bubble dissolves into the desktop instead of ending on a hard
-  // circle — the subtle mist Ami wants around the edge.
-  float halo = smoothstep(fogOuter, bound - 0.02, r); // 0 at the outer edge, 1 near the body
-  float fogN = 0.28 + 0.72 * fbm(N.xy * 3.0 + so + vec2(t * 0.5, -t * 0.4));
-  float haloAlpha = halo * fogN * (0.15 + 0.08 * sin(tt * 0.7 + u_seed * 6.28)) * (1.0 - bodyMask);
+  // Outer mist — an original, volumetric-ish computation. Position-based,
+  // domain-warped noise curls into wisps and streams radially outward, so the
+  // membrane exhales a fine fog that frays and dissolves into the desktop
+  // (never a hard circle). Per-seed offset so no two clouds are alike.
+  vec2 dir = p / max(r, 0.0001);                       // outward direction
+  vec2 fp = p * 3.2 + so;
+  vec2 fw = vec2(fbm(fp + vec2(0.0, t)), fbm(fp + vec2(4.3, -t)));
+  float mist = fbm(fp * 1.5 + fw * 1.9 - dir * t * 1.1); // warped, flowing out
+  float mist2 = fbm(fp * 3.3 + fw * 0.8 + dir * t * 0.6); // finer filaments
+  mist = mist * 0.7 + mist2 * 0.3;
 
-  // faint iridescent-purple mist colour for the halo
-  vec3 fogCol = mix(vec3(0.02, 0.02, 0.05), irid * 0.55 + prince * 0.45, 0.55);
+  float rr = clamp((r - bound) / (fogOuter - bound), 0.0, 1.0); // 0 at body, 1 outer
+  float fall = pow(1.0 - rr, 1.8);                     // density thins outward
+  float density = clamp(fall * (0.22 + 1.15 * mist), 0.0, 1.0);
+  // fray the leading edge with the noise so the outer boundary is fractal
+  density *= smoothstep(0.02, 0.35, mist * (1.0 - rr) + 0.15);
+
+  float haloAlpha = density * (0.18 + 0.05 * sin(tt * 0.6 + u_seed * 6.28)) * (1.0 - bodyMask);
+
+  // mist colour: cool near-black, breathed through with the film's own
+  // iridescence / purple / status tint where the wisps thicken
+  vec3 fogCol = mix(vec3(0.015, 0.02, 0.05),
+                    irid * 0.45 + prince * 0.35 + u_tint * 0.25,
+                    0.30 + 0.5 * mist);
   vec3 outCol = mix(fogCol, col, bodyMask);
 
   float alpha = clamp(bodyAlpha + haloAlpha, 0.0, 1.0);
