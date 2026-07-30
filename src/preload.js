@@ -32,8 +32,8 @@ contextBridge.exposeInMainWorld('ami', {
   openEditor: (id) => ipcRenderer.send('editor:open', id),
   cancelEditor: () => ipcRenderer.send('editor:cancel'),
   bubbleContextMenu: (id) => ipcRenderer.send('bubble:context-menu', id),
-  hideBubble: (id) => ipcRenderer.send('bubble:hide', id),
-  setHover: (id, hovered) => ipcRenderer.send('bubble:hover', { id, hovered }),
+  // Overlay: turn click-through off/on as the pointer enters/leaves a bubble.
+  setInteractive: (on) => ipcRenderer.send('overlay:interactive', on),
   openLink: (url) => ipcRenderer.send('link:open', url),
   openFolder: (p) => ipcRenderer.send('folder:open', p),
 });

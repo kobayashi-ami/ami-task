@@ -123,184 +123,66 @@ function gitInfo(repoPath) {
 // ---------------------------------------------------------------------------
 // Windows
 // ---------------------------------------------------------------------------
-const bubbles = new Map(); // projectId -> BrowserWindow
-const motion = new Map(); // projectId -> drift/size state {cx,cy,vx,vy,size,target,hovered}
+let overlayWin = null; // the single full-screen, click-through bubble overlay
 let panelWin = null; // the Lisa mission-control panel
 let tray = null;
+let overlayHidden = false;
 
-// Small while drifting, larger while hovered so you can read / grab / edit it.
-const BUBBLE_MIN = 112;
-const BUBBLE_MAX = 250;
-const DRIFT_MS = 30; // motion tick
+// One transparent window covering the whole display. Every bubble is drawn and
+// animated INSIDE its canvas (see float/float.js) — no OS window is ever moved,
+// which is what removed the macOS transparent-window flicker. It is click-
+// through by default; the renderer turns interaction on only while the pointer
+// is over a bubble.
+function createOverlay() {
+  if (overlayWin) return overlayWin;
+  const b = screen.getPrimaryDisplay().workArea; // exclude menu bar / Dock
 
-function randomStart(size) {
-  const wa = screen.getPrimaryDisplay().workArea;
-  const half = size / 2;
-  return {
-    cx: wa.x + half + Math.random() * (wa.width - size),
-    cy: wa.y + half + Math.random() * (wa.height - size),
-  };
-}
-
-function createBubble(project) {
-  if (bubbles.has(project.id)) return bubbles.get(project.id);
-
-  const { cx, cy } = randomStart(BUBBLE_MIN);
-  const ang = Math.random() * Math.PI * 2;
-  const speed = 0.7 + Math.random() * 0.5;
-  motion.set(project.id, {
-    cx,
-    cy,
-    vx: Math.cos(ang) * speed,
-    vy: Math.sin(ang) * speed,
-    size: BUBBLE_MIN,
-    target: BUBBLE_MIN,
-    hovered: false,
-  });
-
-  const win = new BrowserWindow({
-    width: BUBBLE_MIN,
-    height: BUBBLE_MIN,
-    x: Math.round(cx - BUBBLE_MIN / 2),
-    y: Math.round(cy - BUBBLE_MIN / 2),
+  overlayWin = new BrowserWindow({
+    x: b.x,
+    y: b.y,
+    width: b.width,
+    height: b.height,
     frame: false,
     transparent: true,
     hasShadow: false,
     resizable: false,
-    maximizable: false,
+    movable: false,
     minimizable: false,
+    maximizable: false,
     fullscreenable: false,
     skipTaskbar: true,
     show: false,
-    title: project.name,
+    title: 'AmiTask',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      additionalArguments: [`--ami-project=${project.id}`],
     },
   });
 
-  win.setAlwaysOnTop(true, 'screen-saver');
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  win.loadFile(path.join(__dirname, 'float', 'index.html'));
+  overlayWin.setAlwaysOnTop(true, 'screen-saver');
+  overlayWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  overlayWin.setIgnoreMouseEvents(true, { forward: true });
+  overlayWin.loadFile(path.join(__dirname, 'float', 'index.html'));
 
-  win.once('ready-to-show', () => {
-    if (!(project.bubble && project.bubble.hidden)) win.showInactive();
-    pushProjectToBubble(project.id);
+  overlayWin.once('ready-to-show', () => {
+    if (!overlayHidden) overlayWin.showInactive();
+    pushToOverlay();
   });
-
-  win.on('closed', () => {
-    bubbles.delete(project.id);
-    motion.delete(project.id);
+  overlayWin.on('closed', () => {
+    overlayWin = null;
   });
-
-  bubbles.set(project.id, win);
-  return win;
+  return overlayWin;
 }
 
-// The desktop drift: every bubble wanders gently across the screen, bouncing
-// off the edges. Hovering a bubble pauses it and swells it so you can read,
-// grab, or edit it; moving away lets it float off again.
-function driftTick() {
-  if (bubbles.size === 0) return;
-  for (const [id, win] of bubbles) {
-    if (win.isDestroyed() || !win.isVisible()) continue;
-    const m = motion.get(id);
-    if (!m) continue;
-
-    const disp = screen.getDisplayNearestPoint({
-      x: Math.round(m.cx),
-      y: Math.round(m.cy),
-    });
-    const wa = disp.workArea;
-    const resizing = Math.abs(m.size - m.target) > 0.5;
-
-    if (m.hovered) {
-      // Follow the user if they drag it; only re-lay-out while swelling.
-      const b = win.getBounds();
-      m.cx = b.x + b.width / 2;
-      m.cy = b.y + b.height / 2;
-      if (resizing) {
-        m.size += (m.target - m.size) * 0.28;
-        const s = Math.round(m.size);
-        win.setBounds({
-          x: Math.round(m.cx - s / 2),
-          y: Math.round(m.cy - s / 2),
-          width: s,
-          height: s,
-        });
-      }
-      continue;
-    }
-
-    if (resizing) m.size += (m.target - m.size) * 0.28;
-
-    // Mass from the task text: a light/empty bubble floats up, a heavy one
-    // (lots written) sinks. Weight also makes it more sluggish sideways.
-    const proj = findProject(id);
-    const now = proj && proj.now ? proj.now.trim() : '';
-    const mass = Math.min(now.length / 80, 1); // 0 (empty) .. 1 (heavy)
-
-    // gravity vs buoyancy — a gentle vertical lean by weight
-    m.vy += (mass - 0.35) * 0.035;
-
-    // organic wander (heavier drifts more ponderously)
-    m.vx += (Math.random() - 0.5) * 0.05 * (1 - 0.5 * mass);
-    m.vy += (Math.random() - 0.5) * 0.03;
-
-    // integrate
-    m.cx += m.vx;
-    m.cy += m.vy;
-
-    // clamp horizontal + vertical (terminal) speeds separately so gravity reads
-    m.vx = Math.max(-1.1, Math.min(1.1, m.vx));
-    m.vy = Math.max(-1.4, Math.min(1.4, m.vy));
-    m.vx *= 0.997; // slight drag
-    // keep some life sideways so mid-weight bubbles never fully stall
-    if (Math.abs(m.vx) < 0.28) m.vx += (m.vx >= 0 ? 1 : -1) * 0.04;
-
-    const half = m.size / 2;
-    if (m.cx - half < wa.x) {
-      m.cx = wa.x + half;
-      m.vx = Math.abs(m.vx);
-    } else if (m.cx + half > wa.x + wa.width) {
-      m.cx = wa.x + wa.width - half;
-      m.vx = -Math.abs(m.vx);
-    }
-    if (m.cy - half < wa.y) {
-      m.cy = wa.y + half;
-      m.vy = Math.abs(m.vy);
-    } else if (m.cy + half > wa.y + wa.height) {
-      m.cy = wa.y + wa.height - half;
-      m.vy = -Math.abs(m.vy);
-    }
-
-    const s = Math.round(m.size);
-    const nx = Math.round(m.cx - s / 2);
-    const ny = Math.round(m.cy - s / 2);
-    if (resizing) {
-      win.setBounds({ x: nx, y: ny, width: s, height: s });
-    } else {
-      // Moving without touching size flickers transparent windows far less.
-      win.setPosition(nx, ny);
-    }
+function showOverlay(show) {
+  overlayHidden = !show;
+  if (show) {
+    if (!overlayWin) createOverlay();
+    else overlayWin.showInactive();
+  } else if (overlayWin) {
+    overlayWin.hide();
   }
-}
-
-function syncBubbles() {
-  // Close bubbles for deleted projects.
-  for (const id of [...bubbles.keys()]) {
-    if (!findProject(id)) {
-      const w = bubbles.get(id);
-      if (w && !w.isDestroyed()) w.close();
-      bubbles.delete(id);
-    }
-  }
-  // Open bubbles for new projects.
-  state.projects.forEach((p) => {
-    if (!bubbles.has(p.id)) createBubble(p);
-  });
 }
 
 function projectPayload(p) {
@@ -322,11 +204,12 @@ function projectPayload(p) {
   };
 }
 
-function pushProjectToBubble(id) {
-  const win = bubbles.get(id);
-  const p = findProject(id);
-  if (win && !win.isDestroyed() && p) {
-    win.webContents.send('project:updated', projectPayload(p));
+function pushToOverlay() {
+  if (overlayWin && !overlayWin.isDestroyed()) {
+    overlayWin.webContents.send('projects:updated', {
+      projects: state.projects.map(projectPayload),
+      activeId: state.activeId,
+    });
   }
 }
 
@@ -421,14 +304,8 @@ function refreshTray() {
     { type: 'separator' },
     ...(projItems.length ? projItems : [{ label: '(no projects)', enabled: false }]),
     { type: 'separator' },
-    {
-      label: 'Show all bubbles',
-      click: () => {
-        state.projects.forEach((p) => (p.bubble.hidden = false));
-        saveState();
-        bubbles.forEach((w) => !w.isDestroyed() && w.showInactive());
-      },
-    },
+    { label: 'Show bubbles', click: () => showOverlay(true) },
+    { label: 'Hide bubbles', click: () => showOverlay(false) },
     { label: 'Quit AmiTask', click: () => app.quit() },
   ]);
   tray.setContextMenu(menu);
@@ -459,8 +336,7 @@ ipcMain.on('project:save', (_e, data) => {
   if (!STATUSES.includes(p.status)) p.status = 'green';
   p.updatedAt = new Date().toISOString();
   saveState();
-  syncBubbles();
-  pushProjectToBubble(p.id);
+  pushToOverlay();
   pushProjectsToPanel();
   refreshTray();
 });
@@ -470,7 +346,7 @@ ipcMain.handle('project:add', () => {
   state.projects.push(p);
   state.activeId = p.id;
   saveState();
-  syncBubbles();
+  pushToOverlay();
   pushProjectsToPanel();
   refreshTray();
   return p.id;
@@ -484,7 +360,7 @@ ipcMain.on('project:delete', (_e, id) => {
     state.activeId = state.projects[0] ? state.projects[0].id : null;
   }
   saveState();
-  syncBubbles();
+  pushToOverlay();
   pushProjectsToPanel();
   refreshTray();
 });
@@ -493,7 +369,7 @@ ipcMain.on('project:setActive', (_e, id) => {
   if (!findProject(id)) return;
   state.activeId = id;
   saveState();
-  bubbles.forEach((_w, pid) => pushProjectToBubble(pid));
+  pushToOverlay();
   pushProjectsToPanel();
 });
 
@@ -502,18 +378,15 @@ ipcMain.on('project:toggleActive', (_e, id) => {
   if (!findProject(id)) return;
   state.activeId = state.activeId === id ? null : id;
   saveState();
-  bubbles.forEach((_w, pid) => pushProjectToBubble(pid));
+  pushToOverlay();
   pushProjectsToPanel();
 });
 
-ipcMain.on('bubble:hide', (_e, id) => {
-  const p = findProject(id);
-  const w = bubbles.get(id);
-  if (p) {
-    p.bubble.hidden = true;
-    saveState();
+// The overlay is click-through except while the pointer is over a bubble.
+ipcMain.on('overlay:interactive', (_e, on) => {
+  if (overlayWin && !overlayWin.isDestroyed()) {
+    overlayWin.setIgnoreMouseEvents(!on, { forward: true });
   }
-  if (w && !w.isDestroyed()) w.hide();
 });
 
 ipcMain.on('editor:open', (_e, id) => createPanel(id));
@@ -528,23 +401,6 @@ ipcMain.on('link:open', (_e, url) => {
 ipcMain.on('folder:open', (_e, p) => {
   const full = expandPath(p);
   if (full && full.trim()) shell.openPath(full);
-});
-
-// A bubble reports when the pointer enters/leaves it: pause its drift and let
-// it swell, then release it back into motion.
-ipcMain.on('bubble:hover', (_e, payload) => {
-  const m = motion.get(payload && payload.id);
-  if (!m) return;
-  m.hovered = !!payload.hovered;
-  m.target = m.hovered ? BUBBLE_MAX : BUBBLE_MIN;
-  if (!m.hovered) {
-    const w = bubbles.get(payload.id);
-    if (w && !w.isDestroyed()) {
-      const b = w.getBounds();
-      m.cx = b.x + b.width / 2;
-      m.cy = b.y + b.height / 2;
-    }
-  }
 });
 
 ipcMain.on('bubble:context-menu', (_e, id) => {
@@ -573,14 +429,9 @@ ipcMain.on('bubble:context-menu', (_e, id) => {
     items.push({ label: 'Open folder', click: () => shell.openPath(p.repoPath) });
   }
   if (anyLink) items.push({ type: 'separator' });
-  items.push({ label: 'Hide this bubble', click: () => {
-    p.bubble.hidden = true;
-    saveState();
-    const w = bubbles.get(id);
-    if (w && !w.isDestroyed()) w.hide();
-  }});
+  items.push({ label: 'Hide bubbles', click: () => showOverlay(false) });
   items.push({ label: 'Quit AmiTask', click: () => app.quit() });
-  Menu.buildFromTemplate(items).popup({ window: bubbles.get(id) });
+  Menu.buildFromTemplate(items).popup({ window: overlayWin || undefined });
 });
 
 // ---------------------------------------------------------------------------
@@ -589,15 +440,12 @@ ipcMain.on('bubble:context-menu', (_e, id) => {
 app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) app.dock.hide();
 
-  syncBubbles();
+  createOverlay();
   createTray();
-
-  // Set every bubble adrift across the desktop.
-  setInterval(driftTick, DRIFT_MS);
 
   // Refresh git branch / last-touched periodically so bubbles stay current.
   setInterval(() => {
-    bubbles.forEach((_w, id) => pushProjectToBubble(id));
+    pushToOverlay();
     pushProjectsToPanel();
   }, 15000);
 
@@ -612,13 +460,13 @@ app.whenReady().then(() => {
         state.activeId = p.id;
         saveState();
         createPanel(p.id);
-        bubbles.forEach((_w, pid) => pushProjectToBubble(pid));
+        pushToOverlay();
       }
     });
   }
 
   app.on('activate', () => {
-    if (bubbles.size === 0) syncBubbles();
+    if (!overlayWin) createOverlay();
   });
 });
 

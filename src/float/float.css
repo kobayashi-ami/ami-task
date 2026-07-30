@@ -1,107 +1,96 @@
-:root {
-  color-scheme: dark;
-}
+:root { color-scheme: dark; }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  user-select: none;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
 
-html,
-body {
+html, body {
   width: 100%;
   height: 100%;
   background: transparent;
   overflow: hidden;
-  -webkit-app-region: drag; /* grab the bubble to move it */
-  cursor: grab;
-}
-
-body:active {
-  cursor: grabbing;
 }
 
 #membrane {
-  position: absolute;
+  position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   display: block;
 }
 
-/* Text is sized in vmin so it scales smoothly as the window swells on hover. */
-#stage {
-  position: absolute;
+/* Text layer: never blocks the desktop; only the edit button is clickable. */
+#bubbles {
+  position: fixed;
   inset: 0;
+  pointer-events: none;
+}
+
+.label {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
-  padding: 16%;
-}
-
-.name {
-  font-family: -apple-system, "Helvetica Neue", "Segoe UI", sans-serif;
-  font-size: 4.2vmin;
-  font-weight: 700;
-  letter-spacing: 1.5vmin;
-  text-transform: uppercase;
-  color: rgba(210, 224, 250, 0.75);
-  margin-bottom: 3vmin;
-  text-shadow: 0 0 2vmin rgba(120, 160, 255, 0.5);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  /* hidden while small/drifting, revealed when the bubble swells */
-  opacity: 0;
-  max-height: 0;
-  margin-bottom: 0;
-  transition: opacity 0.35s ease, max-height 0.35s ease, margin-bottom 0.35s ease;
-}
-
-.task {
-  max-width: 100%;
-  overflow: hidden;
+  padding: 14%;
   text-align: center;
-  font-family: -apple-system, "Helvetica Neue", "Segoe UI", sans-serif;
-  font-weight: 400;
-  font-size: 6.6vmin;
-  line-height: 1.4;
-  letter-spacing: 0.1vmin;
-  color: rgba(236, 243, 255, 0.96);
-  white-space: pre-wrap;
-  word-break: break-word;
-  text-shadow:
-    0 0 1.2vmin rgba(150, 200, 255, 0.4),
-    0 0 3vmin rgba(120, 90, 220, 0.3),
-    0 0 0.4vmin rgba(0, 0, 0, 0.95);
+  font-family: -apple-system, "Helvetica Neue", sans-serif;
+  will-change: transform;
 }
 
-.task.empty {
-  color: rgba(205, 218, 255, 0.4);
-  font-size: 10vmin;
-  letter-spacing: 2vmin;
+/* --- NOW: always readable. Frosted dark backplate keeps contrast ~6:1 over
+   the glassy membrane and whatever desktop shows through. Off-white, calm. --- */
+.l-now {
+  max-width: 100%;
+  font-family: "Hina Mincho", "Hiragino Mincho ProN", serif;
+  font-size: 1.15em;
+  line-height: 1.45;
+  color: #e7ecf3;                     /* off-white, not pure #fff (less halation) */
+  background: rgba(10, 12, 20, 0.5);  /* dark-grey backplate, not pure black */
+  border: 1px solid rgba(150, 170, 210, 0.12);
+  border-radius: 0.6em;
+  padding: 0.35em 0.6em;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75); /* thin, not a glow */
+  overflow: hidden;
 }
-
-#task-text {
+.l-now-text {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-family: "Hina Mincho", "Hiragino Mincho ProN", serif;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
-body.expanded #task-text { -webkit-line-clamp: 6; }
+.label.expanded .l-now-text { -webkit-line-clamp: 6; }
+.l-now.empty {
+  color: rgba(210, 220, 240, 0.4);
+  background: rgba(10, 12, 20, 0.28);
+}
 
-.branch {
-  margin-top: 3vmin;
-  font-family: "SF Mono", "Courier New", ui-monospace, monospace;
-  font-size: 3.2vmin;
-  letter-spacing: 0.2vmin;
-  color: rgba(185, 205, 240, 0.6);
+/* --- name + branch: revealed only when the bubble swells (hover) --- */
+.l-name {
+  font-size: 0.66em;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(224, 232, 246, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  transition: opacity 0.4s ease, max-height 0.4s ease, margin-bottom 0.4s ease;
+}
+.l-branch {
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 0.56em;
+  letter-spacing: 0.03em;
+  color: rgba(190, 205, 235, 0.7);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -109,50 +98,43 @@ body.expanded #task-text { -webkit-line-clamp: 6; }
   opacity: 0;
   max-height: 0;
   margin-top: 0;
-  transition: opacity 0.35s ease, max-height 0.35s ease, margin-top 0.35s ease;
+  transition: opacity 0.4s ease, max-height 0.4s ease, margin-top 0.4s ease;
 }
-
-/* reveal identity + branch only when the bubble is swelled (hovered) */
-body.expanded .name {
+.label.expanded .l-name {
   opacity: 1;
-  max-height: 8vmin;
-  margin-bottom: 3vmin;
+  max-height: 2em;
+  margin-bottom: 0.5em;
 }
-body.expanded .branch:not(:empty) {
+.label.expanded .l-branch:not(:empty) {
   opacity: 1;
-  max-height: 6vmin;
-  margin-top: 3vmin;
+  max-height: 2em;
+  margin-top: 0.5em;
 }
+.label.current .l-name { color: #ffd98a; text-shadow: 0 0 8px rgba(255, 200, 90, 0.5); }
 
-.edit {
-  -webkit-app-region: no-drag;
+/* --- edit affordance: the only clickable bit --- */
+.l-edit {
   pointer-events: auto;
   position: absolute;
-  bottom: 12%;
-  width: 11vmin;
-  height: 11vmin;
-  max-width: 30px;
-  max-height: 30px;
+  bottom: 6%;
+  width: 2em;
+  height: 2em;
   border-radius: 50%;
-  border: 1px solid rgba(170, 200, 255, 0.25);
-  background: rgba(10, 14, 26, 0.35);
-  color: rgba(210, 225, 255, 0.6);
-  font-size: 5vmin;
+  border: 1px solid rgba(170, 200, 255, 0.28);
+  background: rgba(10, 14, 26, 0.4);
+  color: rgba(215, 228, 255, 0.7);
+  font-size: 0.9em;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.35s ease, color 0.35s ease, border-color 0.35s ease,
-    box-shadow 0.35s ease, transform 0.2s ease;
+  transition: opacity 0.35s ease, transform 0.2s ease, box-shadow 0.3s ease;
   backdrop-filter: blur(2px);
 }
-
-body.expanded .edit { opacity: 1; }
-
-.edit:hover {
-  color: rgba(235, 245, 255, 0.95);
-  border-color: rgba(180, 210, 255, 0.6);
-  box-shadow: 0 0 14px rgba(120, 160, 255, 0.5);
-  transform: scale(1.1);
+.label.expanded .l-edit { opacity: 1; }
+.l-edit:hover {
+  color: #eef4ff;
+  border-color: rgba(190, 215, 255, 0.6);
+  box-shadow: 0 0 12px rgba(120, 160, 255, 0.45);
+  transform: scale(1.08);
 }
-
-.edit:active { transform: scale(0.94); }
+.l-edit:active { transform: scale(0.94); }
