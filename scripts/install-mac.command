@@ -30,6 +30,11 @@ if [ -f "$DIR/assets/icon.png" ]; then
   iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/applet.icns"
   touch "$APP"
   rm -rf "$WORK"
+
+  # macOS caches bundle icons aggressively, so also burn it on as a *custom*
+  # icon via NSWorkspace — this shows up immediately and reliably.
+  osascript -l JavaScript -e "ObjC.import('AppKit'); var i = \$.NSImage.alloc.initWithContentsOfFile('$DIR/assets/icon.png'); \$.NSWorkspace.sharedWorkspace.setIconForFileOptions(i, '$APP', 0);" || true
+
   echo "Applied the bubble icon."
 else
   echo "assets/icon.png not found — skipping icon (launcher still works)."
