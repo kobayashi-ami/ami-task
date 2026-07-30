@@ -119,15 +119,14 @@ void main() {
   float sheen = pow(film, 1.5) * 0.6 + fres * 0.95;
   vec3 col = base + irid * sheen;
 
-  // A soft, misty rim whose thickness wobbles around the bubble, so the edge
-  // reads as a curved film — not a flat 2-D white outline.
-  float rimWob = 0.55 + 0.30 * sin(a * 4.0 + tt * 0.8 + u_seed * 6.28)
-                      + 0.15 * sin(a * 7.0 - tt * 0.6);
-  float rimStart = 0.55 + 0.22 * clamp(rimWob, 0.0, 1.0);
+  // A THIN, faint edge catch — not a wide coloured outline. The soft dissolve
+  // is carried by the fog halo below; the 3-D feel comes from the fresnel
+  // sheen, so keep this minimal so it never reads as a drawn 2-D border.
+  float rimStart = 0.90 + 0.05 * sin(a * 5.0 + tt * 0.8 + u_seed * 6.28);
   float rim = smoothstep(rimStart, 1.0, rn);
-  rim *= 0.45 + 0.75 * film; // break the ring into drifting mist
+  rim *= 0.5 + 0.5 * film; // broken up, never a solid line
   rim = clamp(rim, 0.0, 1.0);
-  col += u_tint * (sheen * 0.5 + rim * 0.5 + 0.12);
+  col += u_tint * (sheen * 0.5 + 0.12);
 
   // Prince-PV glossy glints: a bright white catch-light and a magenta glam
   // streak, both drifting — high-contrast, wet, cinematic.
@@ -143,7 +142,7 @@ void main() {
   // luminous rim that slowly breathes — coloured by the film's own
   // iridescence and purple, never a flat white line
   float pulse = 0.75 + 0.25 * sin(tt * 0.8);
-  col += irid * rim * 0.8 + mix(prince, u_tint, 0.5) * rim * pulse * 0.6;
+  col += irid * rim * 0.30; // faint edge catch only — no coloured band
 
   // "current" marker: the active project wears a warm gold halo
   col += vec3(0.95, 0.72, 0.26) * rim * u_active * (0.55 + 0.45 * pulse);
